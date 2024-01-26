@@ -2,15 +2,34 @@ let userInputEl = document.querySelector("#searchBox");
 let searchResultsSection = document.querySelector("#searchResultsSection");
 let carouselList1 = document.querySelector("#carouselList1");
 let carouselList2 = document.querySelector("#carouselList2");
-console.log(carouselList2)
+
 let searchText = document.querySelector("#searchText");
 let faviMoviesList=[]
+let sortedFav;
 
-function faviroteSlideList(faviMoviesList){
+const sortElement=document.querySelector(".drop-down-options");
+
+// sorted the faviroteMovies by relesedYear and movieName
+sortElement.addEventListener("change",(event)=>{
+      if(event.target.value==="name"){
+         sortedFav=faviMoviesList.sort((a,b)=>a.title.localeCompare(b.title)); //sorted for name
+      }else if(event.target.value==="year"){
+         sortedFav=faviMoviesList.sort((a,b)=>((parseInt((a.release_date).split("-")[0]))-(parseInt((b.release_date).split("-")[0])))) //sorted for year
+      }
+      localStorage.setItem("faviMovies",JSON.stringify(sortedFav)); //storing data into localStorage
+      faviroteSlideList()
+        
+})
+
+
+
+//faviroteMovie slide functionality
+function faviroteSlideList(){
     carouselList2.textContent="";
-    console.log(carouselList2);
-    faviMoviesList.forEach(async each=>{
-        const { genre_ids, title, poster_path, release_date, overview, id } =each;
+  const favList=JSON.parse(localStorage.getItem("faviMovies"))
+  faviMoviesList = favList
+    favList.forEach(async each=>{
+        const { title, poster_path, id } =each;
         const movieDetail = await fetch(
             `https://api.themoviedb.org/3/movie/${id}?api_key=2ad18877c2ecce5382256b80fefda964`
           );
@@ -24,12 +43,27 @@ function faviroteSlideList(faviMoviesList){
 
         splide2.destroy();
         let listItem2 = document.createElement("li");
+        listItem2.id=id;
         listItem2.classList.add("splide__slide");
         carouselList2.appendChild(listItem2);
 
         let heartEL = document.createElement("img");
         heartEL.src="./images/redliked.png"
         heartEL.classList.add("heart-icon");
+        heartEL.addEventListener("click",()=>{
+          const index=faviMoviesList.findIndex((each)=>{
+            if(each.id===id){
+              return true;
+            }else{
+              return false
+            }
+          })
+          faviMoviesList.splice(index,1);
+          localStorage.setItem("faviMovies",JSON.stringify(faviMoviesList));
+
+          faviroteSlideList(faviMoviesList)
+
+        })
         listItem2.appendChild(heartEL);
 
 
@@ -54,12 +88,15 @@ function faviroteSlideList(faviMoviesList){
 
 }
 
+faviroteSlideList();
 
 
+//recommended slide functionality
 function carouselList(recommendedMoviesList) {
+  carouselList1.textContent="";
   recommendedMoviesList.forEach(async (Movie) => {
    
-    const { genre_ids, title, poster_path, release_date, overview, id } =
+    const { title, poster_path, id } =
       Movie;
     const movieDetail = await fetch(
       `https://api.themoviedb.org/3/movie/${id}?api_key=2ad18877c2ecce5382256b80fefda964`
@@ -80,22 +117,23 @@ function carouselList(recommendedMoviesList) {
     let heartEL = document.createElement("img");
     heartEL.src="./images/Favorite.png"
     heartEL.addEventListener("click",()=>{
-        const faviMovie=recommendedMoviesList.filter(each=>{
-            
-            if(each.id===id){
-                return each;
-            }
-        });
-        faviMoviesList.push(faviMovie[0])
-        faviroteSlideList(faviMoviesList);
+      const faviObj=faviMoviesList.find((each)=>each.id===id)
+      
+
+      if(faviObj===undefined){
+        faviMoviesList.push(Movie);
+      }
+      localStorage.setItem("faviMovies",JSON.stringify(faviMoviesList)); //storing data into localStorage
+      faviroteSlideList();
     })
+
     heartEL.classList.add("heart-icon");
     listItem.appendChild(heartEL);
     let imgEl = document.createElement("img");
     imgEl.classList.add("carousel-img");
     imgEl.src = `https://image.tmdb.org/t/p/w500/${poster_path}`;
     listItem.appendChild(imgEl);
-    let movieTitle = document.createElement("p");
+    let movieTitle = document.createElement("h1");
     movieTitle.classList.add("movie-title");
     movieTitle.textContent = title;
     listItem.appendChild(movieTitle);
@@ -105,19 +143,21 @@ function carouselList(recommendedMoviesList) {
     splide1.mount();
   });
 }
+
+//render the searched movie functionality
 async function renderSearchMovie(movie) {
   const { genre_ids, title, poster_path, release_date, overview, id } = movie;
   const movieDetail = await fetch(
     `https://api.themoviedb.org/3/movie/${id}?api_key=2ad18877c2ecce5382256b80fefda964`
   );
   const res = await movieDetail.json();
-  console.log(res);
+  
   const { genres } = res;
   let genereNames = "";
   genres.forEach((each) => {
     genereNames += each.name + " ";
   });
-  console.log(genereNames);
+ 
   const getRecommended = await fetch(
     `https://api.themoviedb.org/3/discover/movie?api_key=2ad18877c2ecce5382256b80fefda964&with_genres=${genre_ids.join(
       ","
@@ -137,8 +177,9 @@ async function renderSearchMovie(movie) {
     `;
   carouselList(results);
 }
+
+//getting data from API Call
 async function getValue() {
-  console.log(this.value);
   const apiUrl = `https://api.themoviedb.org/3/search/movie?query=${this.value}&api_key=2ad18877c2ecce5382256b80fefda964`;
   const options = {
     method: "GET",
@@ -156,15 +197,36 @@ async function getValue() {
 const fetchData = () => {
   userInputEl.addEventListener("change", getValue);
 };
+
+//carousel for recommendationMovies
 let splide1 = new Splide("#carousel1", {
   type: "loop",
   gap:"15px",
   perPage: 4,
+  pagination:false,
+  breakpoints:{
+    700:{
+      perPage:2
+    },
+    1100:{
+      perPage:3
+    }
+  }
 });
 
+//carousel for faviroteMovies
 let splide2 = new Splide("#carousel2", {
     gap:"15px",
     perPage: 4,
+    pagination:false,
+    breakpoints:{
+      700:{
+        perPage:2
+      },
+      1100:{
+        perPage:3
+      }
+    }
   });
 
 fetchData();
